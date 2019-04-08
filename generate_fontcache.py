@@ -8,7 +8,7 @@ Use fontconfig to generate a Matplotlib (TrueType/OpenType) font cache::
 
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 import json
-import os
+from pathlib import Path
 import re
 import subprocess
 
@@ -20,9 +20,8 @@ import numpy as np
 def generate_entries():
     fc_format = (r"--format=%{file|escape(\\ )} %{family|escape(\\ )} "
                  r"%{slant} %{weight} %{width}\n")
-    vendored_fonts_dir = os.path.join(mpl.get_data_path(), "fonts/ttf")
-    vendored_fonts = [os.path.join(vendored_fonts_dir, name)
-                      for name in os.listdir(vendored_fonts_dir)]
+    vendored_fonts_dir = Path(mpl.get_data_path(), "fonts/ttf")
+    vendored_fonts = [*map(str, vendored_fonts_dir.glob("*.ttf"))]
     vendored_fonts = subprocess.check_output(
         ["fc-query", fc_format] + vendored_fonts, universal_newlines=True)
     system_fonts = subprocess.check_output(
