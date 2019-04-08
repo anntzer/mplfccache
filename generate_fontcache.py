@@ -18,8 +18,7 @@ import numpy as np
 
 
 def generate_entries():
-    fc_format = (r"--format=%{file|escape(\\ )} %{family|escape(\\ )} "
-                 r"%{slant} %{weight} %{width}\n")
+    fc_format = r"--format=%{file}\n%{family}\n%{slant}\n%{weight}\n%{width}\n"
     vendored_fonts_dir = Path(mpl.get_data_path(), "fonts/ttf")
     vendored_fonts = [*map(str, vendored_fonts_dir.glob("*.ttf"))]
     vendored_fonts = subprocess.check_output(
@@ -27,20 +26,22 @@ def generate_entries():
     system_fonts = subprocess.check_output(
         ["fc-list", fc_format], universal_newlines=True)
     entries = []
-    for line in vendored_fonts.splitlines() + system_fonts.splitlines():
-        fc_file, fc_family, fc_slant, fc_weight, fc_width = \
-            re.split(r"(?<!\\) ", line)
-        file = fc_file.replace(r"\ ", " ")
-        families = re.split(r"(?<!\\),", fc_family.replace(r"\ ", " "))
+    lines = vendored_fonts.splitlines() + system_fonts.splitlines()
+    while lines:
+        fc_file, fc_family, fc_slant, fc_weight, fc_width, *lines = lines
+        file = fc_file
+        families = fc_family.split(",")
+        if re.match("\A\[.*\]\Z", fc_weight):  # Variable weight, unsupported.
+            print(f"Skipping {fc_file} (unsupported variable weight)")
+            continue
         style = {"0": "normal", "100": "italic", "110": "oblique"}[fc_slant]
-        fc_weight = int(fc_weight)
         # See FcWeightToOpenType.
         # Note that 215 ("EXTRABLACK") does not appear in the docs, but in the
         # header...
         fc_weights = [0, 40, 50, 55, 75, 80, 100, 180, 200, 205, 210, 215]
         css_weights = [
             100, 200, 300, 350, 380, 400, 500, 600, 700, 800, 900, 1000]
-        weight = int(np.interp(fc_weight, fc_weights, css_weights) + .5)
+        weight = int(np.interp(float(fc_weight), fc_weights, css_weights) + .5)
         # The old version from pango_fc_weight_to_pango was:
         # weight = (
         #     100 if fc_weight <= 20
